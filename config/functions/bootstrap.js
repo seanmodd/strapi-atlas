@@ -1,18 +1,30 @@
 'use strict';
 
-const fs = require("fs");
-const path = require("path");
+const admin = require('firebase-admin');
+const serviceAccount = require('../../serviceAccountKey.json');
+module.exports = () => {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: 'https://strapiauth-ad816-default-rtdb.firebaseio.com/',
+  });
+  strapi.firebase = admin;
+};
+
+
+
+const fs = require('fs');
+const path = require('path');
 
 const {
   categories,
   products
-} = require("../../data/data");
+} = require('../../data/data');
 
 const findPublicRole = async () => {
   const result = await strapi
-    .query("role", "users-permissions")
+    .query('role', 'users-permissions')
     .findOne({
-      type: "public"
+      type: 'public'
     });
   return result;
 };
@@ -20,20 +32,20 @@ const findPublicRole = async () => {
 const setDefaultPermissions = async () => {
   const role = await findPublicRole();
   const permissions_applications = await strapi
-    .query("permission", "users-permissions")
+    .query('permission', 'users-permissions')
     .find({
-      type: "application",
+      type: 'application',
       role: role.id
     });
   await Promise.all(
     permissions_applications.map(p =>
       strapi
-      .query("permission", "users-permissions")
-      .update({
-        id: p.id
-      }, {
-        enabled: true
-      })
+        .query('permission', 'users-permissions')
+        .update({
+          id: p.id
+        }, {
+          enabled: true
+        })
     )
   );
 };
@@ -41,14 +53,14 @@ const setDefaultPermissions = async () => {
 const isFirstRun = async () => {
   const pluginStore = strapi.store({
     environment: strapi.config.environment,
-    type: "type",
-    name: "setup"
+    type: 'type',
+    name: 'setup'
   });
   const initHasRun = await pluginStore.get({
-    key: "initHasRun"
+    key: 'initHasRun'
   });
   await pluginStore.set({
-    key: "initHasRun",
+    key: 'initHasRun',
     value: true
   });
   return !initHasRun;
@@ -56,7 +68,7 @@ const isFirstRun = async () => {
 
 const getFilesizeInBytes = filepath => {
   var stats = fs.statSync(filepath);
-  var fileSizeInBytes = stats["size"];
+  var fileSizeInBytes = stats['size'];
   return fileSizeInBytes;
 };
 
@@ -68,8 +80,8 @@ const createSeedData = async (files) => {
     file = `./data/uploads/${file}`;
 
     const size = getFilesizeInBytes(file);
-    const array = file.split(".");
-    const ext = array[array.length - 1]
+    const array = file.split('.');
+    const ext = array[array.length - 1];
     const mimeType = `image/.${ext}`;
     const image = {
       path: file,
@@ -77,8 +89,8 @@ const createSeedData = async (files) => {
       size,
       type: mimeType
     };
-    return image
-  }
+    return image;
+  };
 
 
   const categoriesPromises = categories.map(({
@@ -91,7 +103,7 @@ const createSeedData = async (files) => {
 
 
   const productsPromises = products.map(async product => {
-    const image = handleFiles(product)
+    const image = handleFiles(product);
 
     const files = {
       image
@@ -119,11 +131,11 @@ module.exports = async () => {
   const shouldSetDefaultPermissions = await isFirstRun();
   if (shouldSetDefaultPermissions) {
     try {
-      console.log("Setting up your starter...");
-      const files = fs.readdirSync(`./data/uploads`);
+      console.log('Setting up your starter...');
+      const files = fs.readdirSync('./data/uploads');
       await setDefaultPermissions();
       await createSeedData(files);
-      console.log("Ready to go");
+      console.log('Ready to go');
     } catch (e) {
       console.log(e);
     }

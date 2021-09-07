@@ -1,3 +1,4 @@
+
 const _ = require('lodash');
 
 module.exports = async (ctx, next) => {
@@ -10,7 +11,9 @@ module.exports = async (ctx, next) => {
 
   if (ctx.request && ctx.request.header && ctx.request.header.authorization) {
     try {
-      const { id } = await strapi.plugins['users-permissions'].services.jwt.getToken(ctx);
+      const { id } = await strapi.plugins[
+        'users-permissions'
+      ].services.jwt.getToken(ctx);
 
       if (id === undefined) {
         throw new Error('Invalid token: Token did not contain required fields');
@@ -20,15 +23,21 @@ module.exports = async (ctx, next) => {
       ctx.state.user = await strapi.plugins[
         'users-permissions'
       ].services.user.fetchAuthenticatedUser(id);
-
     } catch (err) {
-      /** With Magic Changes */
-      try{
-        await strapi.plugins['magic'].services['magic'].loginWithMagic(ctx);
-      } catch (err) {
+      // decode firebase tokens
+      try {
+        const idToken = ctx.request.header.authorization.split(' ')[1];
+        const decodedToken = await strapi.firebase
+          .auth()
+          .verifyIdToken(idToken);
+        ctx.state.user = { ...decodedToken };
+        if (decodedToken.strapi_uid) {
+          ctx.state.user.id = decodedToken.strapi_uid;
+        }
+        return await next();
+      } catch (error) {
         return handleErrors(ctx, err, 'unauthorized');
       }
-      /** END With Magic Changes */
     }
 
     if (!ctx.state.user) {
@@ -51,7 +60,11 @@ module.exports = async (ctx, next) => {
       _.get(await store.get({ key: 'advanced' }), 'email_confirmation') &&
       !ctx.state.user.confirmed
     ) {
-      return handleErrors(ctx, 'Your account email is not confirmed.', 'unauthorized');
+      return handleErrors(
+        ctx,
+        'Your account email is not confirmed.',
+        'unauthorized'
+      );
     }
 
     if (ctx.state.user.blocked) {
@@ -65,20 +78,24 @@ module.exports = async (ctx, next) => {
 
   // Retrieve `public` role.
   if (!role) {
-    role = await strapi.query('role', 'users-permissions').findOne({ type: 'public' }, []);
+    role = await strapi
+      .query('role', 'users-permissions')
+      .findOne({ type: 'public' }, []);
   }
 
   const route = ctx.request.route;
-  const permission = await strapi.query('permission', 'users-permissions').findOne(
-    {
-      role: role.id,
-      type: route.plugin || 'application',
-      controller: route.controller,
-      action: route.action,
-      enabled: true,
-    },
-    []
-  );
+  const permission = await strapi
+    .query('permission', 'users-permissions')
+    .findOne(
+      {
+        role: role.id,
+        type: route.plugin || 'application',
+        controller: route.controller,
+        action: route.action,
+        enabled: true,
+      },
+      []
+    );
 
   if (!permission) {
     return handleErrors(ctx, undefined, 'forbidden');
@@ -86,7 +103,9 @@ module.exports = async (ctx, next) => {
 
   // Execute the policies.
   if (permission.policy) {
-    return await strapi.plugins['users-permissions'].config.policies[permission.policy](ctx, next);
+    return await strapi.plugins['users-permissions'].config.policies[
+      permission.policy
+    ](ctx, next);
   }
 
   // Execute the action.

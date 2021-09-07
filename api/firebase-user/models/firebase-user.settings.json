@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "firebase_users",
+  "info": {
+    "name": "Firebase User",
+    "description": ""
+  },
+  "options": {
+    "increments": true,
+    "timestamps": true,
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "email"
+    },
+    "uid": {
+      "type": "uid"
+    },
+    "phoneNumber": {
+      "type": "string"
+    }
+  }
+}
